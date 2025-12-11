@@ -1,0 +1,59 @@
+# Framework Configuration
+
+router:
+  local_threshold: 0.6  # Confidence threshold for using local model
+  complexity_threshold: 100  # Code complexity threshold for cloud routing
+  privacy_keywords:
+    - "password"
+    - "secret"
+    - "api_key"
+    - "token"
+    - "credential"
+
+refinement:
+  max_iterations: 5
+  convergence_threshold: 0.95
+  quality_metrics:
+    - "readability"
+    - "maintainability"
+    - "security"
+
+verification:
+  enable_exploit: true
+  exploit_timeout: 30  # seconds
+  test_environment: "sandbox"
+
+performance:
+  parallel_workers: 4
+  enable_caching: true
+  cache_ttl: 3600  # seconds
+
+detection:
+  static_analyzers:
+    python:
+      - "bandit"
+      - "semgrep"
+    cpp:
+      - "semgrep"
+    java:
+      - "semgrep"
+  
+  cwe_categories:
+    - "CWE-79"  # XSS
+    - "CWE-89"  # SQL Injection
+    - "CWE-78"  # Command Injection
+    - "CWE-22"  # Path Traversal
+    - "CWE-119" # Buffer Overflow
+    - "CWE-20"  # Input Validation
+
+llm_models:
+  codellama:
+    temperature: 0.2
+    max_tokens: 2048
+    top_p: 0.95
+  
+  chatgpt:
+    temperature: 0.3
+    max_tokens: 2048
+    top_p: 0.95
+
