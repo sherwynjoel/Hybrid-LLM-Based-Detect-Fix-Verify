@@ -138,3 +138,5 @@ Exploit Code:
         """Get system prompt for specific CWE"""
         return self.system_prompts.get(cwe, 'You are fixing a security vulnerability. Apply security best practices.')
 
+
+

@@ -166,3 +166,5 @@ class CodeQualityAnalyzer:
             'complexity_change': fixed['complexity'] - original['complexity']
         }
 
+
+

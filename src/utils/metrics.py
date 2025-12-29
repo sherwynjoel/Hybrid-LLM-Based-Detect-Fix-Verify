@@ -126,3 +126,5 @@ class MetricsCalculator:
                                 if not (m.exploit_test_passed and m.static_analysis_passed))
         }
 
+
+

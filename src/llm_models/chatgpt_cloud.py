@@ -173,24 +173,56 @@ class ChatGPTCloud:
         if matches:
             return matches[-1].strip()
         
+        # Try with different code block formats
+        code_block_pattern = "```(.*?)```"
+        matches = re.findall(code_block_pattern, text, re.DOTALL)
+        if matches:
+            # Filter out markdown code blocks that are explanations
+            for match in reversed(matches):
+                code = match.strip()
+                # Skip if it looks like explanation text
+                if not (code.startswith('python') or code.startswith('```') or 
+                        len(code.split('\n')) < 3 or 
+                        any(word in code.lower()[:100] for word in ['explanation', 'summary', 'note'])):
+                    return code
+        
         # If no code block found, try to extract after keywords
         lines = text.split('\n')
         code_started = False
         code_lines = []
         
-        keywords = ['fixed code', 'code:', 'solution:', 'fix:']
+        keywords = ['fixed code', 'code:', 'solution:', 'fix:', 'corrected code']
         
         for line in lines:
             if any(keyword in line.lower() for keyword in keywords):
                 code_started = True
                 continue
             if code_started:
-                if line.strip().startswith('```') or line.strip().startswith('explanation'):
+                if line.strip().startswith('```') or 'explanation' in line.lower():
                     break
                 if line.strip():
                     code_lines.append(line)
         
-        return '\n'.join(code_lines).strip()
+        extracted = '\n'.join(code_lines).strip()
+        
+        # If still empty, try to extract the first substantial code-like block
+        if not extracted or len(extracted) < 10:
+            # Look for lines that look like code (have indentation, keywords, etc.)
+            code_keywords = ['def ', 'class ', 'import ', 'if ', 'for ', 'while ', 'return ', 
+                           'function', 'void', 'int ', 'public ', 'private ']
+            for i, line in enumerate(lines):
+                if any(keyword in line for keyword in code_keywords):
+                    # Extract from this line to end or next explanation
+                    code_lines = []
+                    for j in range(i, len(lines)):
+                        if 'explanation' in lines[j].lower() or 'summary' in lines[j].lower():
+                            break
+                        code_lines.append(lines[j])
+                    extracted = '\n'.join(code_lines).strip()
+                    if len(extracted) > 20:
+                        break
+        
+        return extracted
     
     def is_available(self) -> bool:
         """Check if ChatGPT API is available"""

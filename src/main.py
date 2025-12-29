@@ -70,6 +70,7 @@ class VulnerabilityRepairFramework:
             'success': True,
             'file_path': file_path,
             'language': language,
+            'original_code': code,
             'vulnerabilities_found': len(vulnerabilities),
             'results': results,
             'summary': self._generate_summary(results)
@@ -139,6 +140,7 @@ class VulnerabilityRepairFramework:
             'vulnerability': vulnerability,
             'success': True,
             'fixed_code': initial_fix,
+            'full_response': fix_result.get('full_response', ''),
             'iterations': iterations,
             'processing_time': processing_time,
             'validation': validation_result,

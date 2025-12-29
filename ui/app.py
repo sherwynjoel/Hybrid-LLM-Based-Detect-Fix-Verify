@@ -220,6 +220,239 @@ def process_code(code: str, language: str, use_refinement: bool, use_verificatio
             os.unlink(temp_file)
         st.session_state.processing = False
 
+def get_vulnerability_explanation(vuln_type: str, cwe: str) -> str:
+    """Get explanation of the vulnerability"""
+    explanations = {
+        'SQL Injection': 'SQL Injection occurs when user input is directly concatenated into SQL queries without proper sanitization. Attackers can inject malicious SQL code to manipulate database queries, potentially accessing, modifying, or deleting data.',
+        'Command Injection': 'Command Injection happens when user input is passed to system commands without validation. Attackers can execute arbitrary commands on the server, leading to complete system compromise.',
+        'Path Traversal': 'Path Traversal vulnerabilities allow attackers to access files outside the intended directory by manipulating file paths (e.g., using "../" sequences). This can lead to unauthorized file access.',
+        'Insecure Deserialization': 'Insecure Deserialization occurs when untrusted data is deserialized without proper validation. This can lead to remote code execution, privilege escalation, or denial of service attacks.',
+        'Hardcoded Credentials': 'Hardcoded credentials (passwords, API keys) in source code are a critical security risk. If the code is exposed, attackers can gain unauthorized access to systems and data.',
+        'XSS': 'Cross-Site Scripting (XSS) allows attackers to inject malicious scripts into web pages viewed by other users. This can lead to session hijacking, defacement, or theft of sensitive information.',
+        'Weak Cryptography': 'Using weak cryptographic algorithms (like MD5) makes it easier for attackers to break encryption or generate collisions, compromising data integrity and confidentiality.',
+        'Information Disclosure': 'Information Disclosure occurs when sensitive information (API keys, secrets, internal paths) is exposed in error messages, logs, or code, helping attackers understand system internals.',
+        'Insecure Random': 'Using insecure random number generators (like random.randint) for security-sensitive operations (tokens, passwords) makes them predictable and vulnerable to attacks.',
+        'Missing Input Validation': 'Missing input validation allows attackers to provide unexpected or malicious input, leading to various security vulnerabilities including buffer overflows, injection attacks, and logic errors.',
+        'Debug Mode in Production': 'Debug mode in production exposes sensitive information, detailed error messages, and debugging tools, making it easier for attackers to find and exploit vulnerabilities.'
+    }
+    
+    return explanations.get(vuln_type, f'This is a {vuln_type} vulnerability (CWE: {cwe}). It represents a security weakness that could be exploited by attackers.')
+
+def extract_fix_explanation(full_response: str) -> str:
+    """Extract fix explanation from LLM response"""
+    if not full_response:
+        return ""
+    
+    lines = full_response.split('\n')
+    explanation_lines = []
+    in_explanation = False
+    
+    keywords = ['explanation', 'fix', 'solution', 'security improvement', 'what was fixed']
+    
+    for i, line in enumerate(lines):
+        line_lower = line.lower()
+        if any(keyword in line_lower for keyword in keywords) and ':' in line:
+            in_explanation = True
+            # Include the line with the keyword
+            explanation_lines.append(line)
+            continue
+        
+        if in_explanation:
+            # Stop if we hit code blocks or new sections
+            if line.strip().startswith('```') or any(word in line_lower for word in ['code:', 'fixed code:', 'summary:']):
+                break
+            if line.strip():
+                explanation_lines.append(line)
+    
+    explanation = '\n'.join(explanation_lines).strip()
+    
+    # If no explanation found, try to get first paragraph
+    if not explanation:
+        paragraphs = full_response.split('\n\n')
+        for para in paragraphs[:3]:
+            if len(para) > 50 and not para.strip().startswith('```'):
+                explanation = para
+                break
+    
+    return explanation
+
+def get_security_improvements(vuln_type: str, cwe: str) -> list:
+    """Get list of security improvements applied"""
+    improvements_map = {
+        'SQL Injection': [
+            'Used parameterized queries/prepared statements',
+            'Input validation and sanitization',
+            'Proper error handling without exposing database structure'
+        ],
+        'Command Injection': [
+            'Input validation and sanitization',
+            'Use of safe command execution methods',
+            'Whitelist-based input validation'
+        ],
+        'Path Traversal': [
+            'Path validation and sanitization',
+            'Use of safe path operations',
+            'Restricted file access to intended directories'
+        ],
+        'Insecure Deserialization': [
+            'Input validation before deserialization',
+            'Use of safe deserialization methods',
+            'Restricted object types allowed'
+        ],
+        'Hardcoded Credentials': [
+            'Removed hardcoded credentials',
+            'Use of environment variables or secure configuration',
+            'Proper credential management'
+        ],
+        'XSS': [
+            'Input sanitization and escaping',
+            'Content Security Policy (CSP) implementation',
+            'Output encoding for user-generated content'
+        ],
+        'Weak Cryptography': [
+            'Replaced with strong cryptographic algorithms (SHA-256, bcrypt)',
+            'Proper key management',
+            'Use of secure random number generators'
+        ],
+        'Information Disclosure': [
+            'Removed sensitive information from code',
+            'Secure error handling',
+            'Proper logging without exposing secrets'
+        ],
+        'Insecure Random': [
+            'Replaced with cryptographically secure random generators',
+            'Use of secrets module (Python) or equivalent',
+            'Proper random number generation for security contexts'
+        ],
+        'Missing Input Validation': [
+            'Comprehensive input validation',
+            'Type checking and range validation',
+            'Sanitization of user inputs'
+        ],
+        'Debug Mode in Production': [
+            'Disabled debug mode',
+            'Removed debug statements',
+            'Production-safe error handling'
+        ]
+    }
+    
+    return improvements_map.get(vuln_type, [
+        'Applied security best practices',
+        'Input validation and sanitization',
+        'Proper error handling'
+    ])
+
+def generate_download_content(repair_result: dict, language: str, original_code: str) -> str:
+    """Generate comprehensive download content with description"""
+    
+    vuln = repair_result.get('vulnerability', {})
+    fixed_code = repair_result.get('fixed_code', '')
+    full_response = repair_result.get('full_response', '')
+    metrics = repair_result.get('metrics', {})
+    validation = repair_result.get('validation', {})
+    
+    # Build comprehensive description
+    content = []
+    content.append("=" * 80)
+    content.append("VULNERABILITY REPAIR REPORT")
+    content.append("=" * 80)
+    content.append("")
+    
+    # Vulnerability Information
+    content.append("VULNERABILITY DETAILS:")
+    content.append("-" * 80)
+    content.append(f"Type: {vuln.get('type', 'Unknown')}")
+    content.append(f"CWE ID: {vuln.get('cwe', 'Unknown')}")
+    content.append(f"Severity: {vuln.get('severity', 'Unknown')}")
+    content.append(f"Line Number: {vuln.get('line', 'Unknown')}")
+    content.append(f"Description: {vuln.get('message', 'No description available')}")
+    content.append("")
+    
+    # What is the Issue
+    content.append("WHAT IS THE ISSUE:")
+    content.append("-" * 80)
+    issue_description = get_vulnerability_explanation(vuln.get('type', ''), vuln.get('cwe', ''))
+    content.append(issue_description)
+    content.append("")
+    
+    # Original Vulnerable Code
+    if original_code:
+        content.append("ORIGINAL VULNERABLE CODE:")
+        content.append("-" * 80)
+        # Extract the relevant function/block around the vulnerable line
+        vulnerable_line = vuln.get('line', 0)
+        if vulnerable_line > 0:
+            lines = original_code.split('\n')
+            start = max(0, vulnerable_line - 5)
+            end = min(len(lines), vulnerable_line + 10)
+            context_code = '\n'.join(lines[start:end])
+            content.append(context_code)
+        else:
+            content.append(original_code)
+        content.append("")
+    
+    # What Was Fixed
+    content.append("WHAT WAS FIXED:")
+    content.append("-" * 80)
+    if fixed_code:
+        fix_explanation = extract_fix_explanation(full_response)
+        if fix_explanation:
+            content.append(fix_explanation)
+        else:
+            content.append("The vulnerability was fixed by applying security best practices:")
+            content.append(f"- Replaced vulnerable code with secure implementation")
+            content.append(f"- Applied {vuln.get('type', 'security')} mitigation techniques")
+        content.append("")
+    else:
+        content.append("WARNING: Fix generation failed or returned empty code.")
+        content.append("The LLM may not have generated a proper fix. Please review the original code.")
+        content.append("")
+    
+    # Fixed Code
+    content.append("FIXED CODE:")
+    content.append("-" * 80)
+    if fixed_code:
+        content.append(fixed_code)
+    else:
+        content.append("No fixed code available.")
+        content.append("")
+        content.append("Original code (for reference):")
+        if original_code:
+            content.append(original_code)
+    content.append("")
+    
+    # Security Improvements
+    content.append("SECURITY IMPROVEMENTS:")
+    content.append("-" * 80)
+    improvements = get_security_improvements(vuln.get('type', ''), vuln.get('cwe', ''))
+    for improvement in improvements:
+        content.append(f"- {improvement}")
+    content.append("")
+    
+    # Metrics
+    if metrics:
+        content.append("QUALITY METRICS:")
+        content.append("-" * 80)
+        content.append(f"Code Similarity: {metrics.get('code_similarity', 0):.1%}")
+        content.append(f"Fix Quality Score: {metrics.get('fix_quality_score', 0):.2f}")
+        content.append(f"Exploit Test: {'PASSED' if metrics.get('exploit_test_passed', False) else 'FAILED'}")
+        content.append(f"Static Analysis: {'PASSED' if metrics.get('static_analysis_passed', False) else 'FAILED'}")
+        content.append("")
+    
+    # Processing Information
+    content.append("PROCESSING INFORMATION:")
+    content.append("-" * 80)
+    content.append(f"Model Used: {repair_result.get('model_used', 'Unknown')}")
+    content.append(f"Iterations: {repair_result.get('iterations', 1)}")
+    content.append(f"Processing Time: {repair_result.get('processing_time', 0):.2f}s")
+    content.append("")
+    
+    content.append("=" * 80)
+    content.append("End of Report")
+    content.append("=" * 80)
+    
+    return '\n'.join(content)
+
 def display_results():
     """Display analysis results"""
     
@@ -294,6 +527,21 @@ def display_results():
             if fixed_code:
                 st.subheader("🔧 Fixed Code")
                 st.code(fixed_code, language=result.get('language', 'python'))
+            else:
+                st.warning("⚠️ Fix generation failed or returned empty code. The LLM may not have generated a proper fix. Please review the original code and try again.")
+                st.subheader("📝 Original Code (for reference)")
+                original_code = result.get('original_code', '')
+                if original_code:
+                    # Show context around the vulnerable line
+                    vulnerable_line = vuln.get('line', 0)
+                    if vulnerable_line > 0:
+                        lines = original_code.split('\n')
+                        start = max(0, vulnerable_line - 5)
+                        end = min(len(lines), vulnerable_line + 10)
+                        context_code = '\n'.join(lines[start:end])
+                        st.code(context_code, language=result.get('language', 'python'))
+                    else:
+                        st.code(original_code, language=result.get('language', 'python'))
             
             # Metrics
             metrics = repair_result.get('metrics', {})
@@ -317,11 +565,17 @@ def display_results():
             st.write(f"**Processing Time:** {repair_result.get('processing_time', 0):.2f}s")
             st.write(f"**Model Used:** {repair_result.get('model_used', 'Unknown')}")
             
-            # Download fixed code
+            # Download fixed code with description
+            download_content = generate_download_content(
+                repair_result, 
+                result.get('language', 'python'),
+                result.get('original_code', '')
+            )
+            
             st.download_button(
-                label="📥 Download Fixed Code",
-                data=fixed_code,
-                file_name=f"fixed_vulnerability_{i}.{result.get('language', 'py')}",
+                label="📥 Download Fixed Code with Description",
+                data=download_content,
+                file_name=f"fixed_vulnerability_{i}_{vuln.get('type', 'unknown').replace(' ', '_')}.txt",
                 mime="text/plain",
                 key=f"download_{i}"
             )
