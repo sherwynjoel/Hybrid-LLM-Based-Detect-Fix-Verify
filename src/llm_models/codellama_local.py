@@ -205,22 +205,35 @@ class CodeLlamaLocal:
         return extracted
     
     def is_available(self) -> bool:
-        """Check if CodeLlama is available"""
-        if self.use_ollama:
-            try:
-                response = requests.get(f"{self.ollama_url}/api/tags", timeout=5)
-                if response.status_code == 200:
-                    models = response.json().get('models', [])
-                    model_names = [m.get('name', '') for m in models]
-                    return any(self.model_name in name for name in model_names)
-                return False
-            except:
-                return False
-        else:
+        """Check if CodeLlama is available - tries multiple ports automatically"""
+        if not self.use_ollama:
             # Check if transformers is available
             try:
                 import transformers
                 return True
             except ImportError:
                 return False
+        
+        # Try multiple ports (check 11500 first, then 11434)
+        # Port 11500 is often used when 11434 is busy
+        ports_to_try = [11500, 11434]
+        
+        for port in ports_to_try:
+            try:
+                url = f"http://localhost:{port}/api/tags"
+                response = requests.get(url, timeout=2)
+                if response.status_code == 200:
+                    models = response.json().get('models', [])
+                    model_names = [m.get('name', '') for m in models]
+                    # Check if CodeLlama model is available
+                    if any(self.model_name in name or 'codellama' in name.lower() for name in model_names):
+                        # Update ollama_url to working port
+                        self.ollama_url = f"http://localhost:{port}"
+                        os.environ['OLLAMA_PORT'] = str(port)
+                        os.environ['OLLAMA_URL'] = self.ollama_url
+                        return True
+            except:
+                continue
+        
+        return False
 

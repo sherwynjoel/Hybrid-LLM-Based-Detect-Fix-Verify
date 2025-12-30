@@ -3,12 +3,62 @@
 router:
   local_threshold: 0.6  # Confidence threshold for using local model
   complexity_threshold: 100  # Code complexity threshold for cloud routing
+  
+  # Privacy-First Routing: Sensitive code → Local LLM, Normal code → Cloud LLM
   privacy_keywords:
+    # Authentication & Credentials
     - "password"
-    - "secret"
-    - "api_key"
-    - "token"
+    - "passwd"
+    - "pwd"
     - "credential"
+    - "auth"
+    - "authentication"
+    
+    # API Keys & Tokens
+    - "api_key"
+    - "apikey"
+    - "token"
+    - "access_token"
+    - "bearer_token"
+    - "refresh_token"
+    
+    # Secrets & Keys
+    - "secret"
+    - "secret_key"
+    - "private_key"
+    - "encryption_key"
+    - "decryption_key"
+    - "master_key"
+    
+    # Security Codes
+    - "security_code"
+    - "pin"
+    - "passcode"
+    - "verification_code"
+    
+    # Database Credentials
+    - "db_password"
+    - "database_password"
+    - "connection_string"
+    - "connection_url"
+    
+    # OAuth & JWT
+    - "oauth_secret"
+    - "client_secret"
+    - "jwt_secret"
+    - "jwt_key"
+    
+    # Financial Information
+    - "credit_card"
+    - "card_number"
+    - "cvv"
+    - "ssn"
+    - "social_security"
+    
+    # Personal Information
+    - "personal_info"
+    - "pii"
+    - "sensitive_data"
 
 refinement:
   max_iterations: 5

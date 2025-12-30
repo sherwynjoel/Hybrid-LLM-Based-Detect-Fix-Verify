@@ -1,0 +1,64 @@
+<idea-plugin>
+    <id>com.hybridllm.vulnerabilityrepair</id>
+    <name>Hybrid LLM Vulnerability Repair</name>
+    <version>1.0.0</version>
+    <vendor email="support@hybridllm.com" url="https://github.com/hybridllm">Hybrid LLM Framework</vendor>
+
+    <description><![CDATA[
+    Real-time vulnerability detection and repair using hybrid LLM framework.
+    
+    Features:
+    - Real-time vulnerability analysis
+    - In-editor fixes
+    - Privacy-first routing
+    - Multi-language support
+    ]]></description>
+
+    <change-notes><![CDATA[
+    Initial release with VS Code-style integration
+    ]]></change-notes>
+
+    <depends>com.intellij.modules.platform</depends>
+    <depends>com.intellij.modules.lang</depends>
+    <depends>com.intellij.modules.java</depends>
+    <depends>PythonCore</depends>
+
+    <extensions defaultExtensionNs="com.intellij">
+        <toolWindow id="Hybrid LLM Vulnerabilities" 
+                    secondary="true" 
+                    anchor="bottom" 
+                    icon="/icons/vulnerability.png"
+                    factoryClass="com.hybridllm.ui.ResultToolWindow"/>
+        <inspectionToolProvider implementation="com.hybridllm.inspection.VulnerabilityInspectionProvider"/>
+        <codeInsight.inspection language="Python" shortName="HybridLLM" 
+                                displayName="Hybrid LLM Vulnerability" 
+                                groupName="Security" 
+                                implementationClass="com.hybridllm.inspection.VulnerabilityInspection"/>
+        <intentionAction>
+            <className>com.hybridllm.intention.FixVulnerabilityIntention</className>
+            <category>Python</category>
+        </intentionAction>
+    </extensions>
+
+    <actions>
+        <action id="HybridLLM.AnalyzeFile" 
+                class="com.hybridllm.actions.AnalyzeFileAction" 
+                text="Analyze File for Vulnerabilities">
+            <add-to-group group-id="ToolsMenu" anchor="last"/>
+            <keyboard-shortcut keymap="$default" first-keystroke="ctrl alt A"/>
+        </action>
+        
+        <action id="HybridLLM.AnalyzeProject" 
+                class="com.hybridllm.actions.AnalyzeProjectAction" 
+                text="Analyze Project">
+            <add-to-group group-id="ToolsMenu" anchor="after" relative-to-action="HybridLLM.AnalyzeFile"/>
+        </action>
+        
+        <action id="HybridLLM.TogglePrivacyMode" 
+                class="com.hybridllm.actions.TogglePrivacyModeAction" 
+                text="Toggle Privacy-First Mode">
+            <add-to-group group-id="ToolsMenu" anchor="after" relative-to-action="HybridLLM.AnalyzeProject"/>
+        </action>
+    </actions>
+</idea-plugin>
+

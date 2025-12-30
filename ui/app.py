@@ -84,15 +84,122 @@ def main():
         st.header("⚙️ Configuration")
         
         st.subheader("LLM Settings")
-        use_refinement = st.checkbox("Enable Multi-Iteration Refinement", value=True)
-        use_verification = st.checkbox("Enable Exploit-Based Verification", value=True)
+        use_refinement = st.checkbox("Enable Multi-Iteration Refinement", value=True, key="refinement_checkbox")
+        use_verification = st.checkbox("Enable Exploit-Based Verification", value=True, key="verification_checkbox")
+        
+        st.divider()
+        
+        st.subheader("🔒 Privacy & Security")
+        privacy_first_mode = st.checkbox(
+            "Enable Privacy-First Routing",
+            value=True,
+            key="privacy_first_checkbox",
+            help="When ON: Sensitive code → Local LLM, Normal code → Cloud LLM\nWhen OFF: Default routing (efficiency-based)"
+        )
+        
+        if privacy_first_mode:
+            st.success("🔒 Privacy-First Mode: ACTIVE")
+            st.caption("Sensitive code stays local, normal code uses cloud")
+        else:
+            st.info("⚡ Efficiency Mode: ACTIVE")
+            st.caption("Default routing for optimal performance")
+        
+        st.divider()
         
         st.subheader("Model Status")
         codellama_status = check_codellama_status()
         chatgpt_status = check_chatgpt_status()
         
-        st.write(f"**CodeLlama 13B (Local):** {'✅ Available' if codellama_status else '❌ Not Available'}")
-        st.write(f"**ChatGPT-4 (Cloud):** {'✅ Available' if chatgpt_status else '❌ Not Available'}")
+        col1, col2 = st.columns(2)
+        with col1:
+            if codellama_status:
+                st.success("**CodeLlama 13B (Local):** ✅ Available")
+            else:
+                st.error("**CodeLlama 13B (Local):** ❌ Not Available")
+            
+            # Always show connection button
+            if st.button("🔌 Connect/Reconnect Local LLM", key="connect_llm_btn", use_container_width=True):
+                with st.spinner("Connecting to Ollama server..."):
+                    import subprocess
+                    try:
+                        # Try to start/connect Ollama
+                        result = subprocess.run(
+                            ["python", "scripts/auto_start_ollama.py"],
+                            capture_output=True,
+                            text=True,
+                            timeout=30
+                        )
+                        if result.returncode == 0:
+                            st.success("✅ Connected! Refreshing status...")
+                            time.sleep(1)
+                            st.rerun()
+                        else:
+                            st.error(f"Failed to connect: {result.stderr}")
+                            st.info("💡 Try running: `.\START_LOCAL_LLM_EASY.bat`")
+                    except Exception as e:
+                        st.error(f"Error: {str(e)}")
+                        st.info("💡 Try running: `.\START_LOCAL_LLM_EASY.bat`")
+        
+        with col2:
+            if chatgpt_status:
+                st.success("**ChatGPT-4 (Cloud):** ✅ Available")
+            else:
+                st.error("**ChatGPT-4 (Cloud):** ❌ Not Available")
+                st.caption("Set OPENAI_API_KEY environment variable")
+            
+            # Always show connection button for cloud LLM
+            if st.button("☁️ Connect/Reconnect Cloud LLM", key="connect_cloud_llm_btn", use_container_width=True):
+                with st.spinner("Checking OpenAI API key..."):
+                    import os
+                    api_key = os.getenv('OPENAI_API_KEY', '')
+                    
+                    if api_key:
+                        # Test the connection
+                        try:
+                            from src.llm_models.chatgpt_cloud import ChatGPTCloud
+                            chatgpt = ChatGPTCloud()
+                            if chatgpt.is_available():
+                                st.success("✅ Connected! Refreshing status...")
+                                time.sleep(1)
+                                st.rerun()
+                            else:
+                                st.error("❌ API key is set but connection failed")
+                                st.info("💡 Check if your API key is valid")
+                        except Exception as e:
+                            st.error(f"Error: {str(e)}")
+                    else:
+                        # Show input for API key
+                        st.warning("⚠️ OPENAI_API_KEY not set")
+                        st.info("""
+                        **To connect ChatGPT-4:**
+                        
+                        1. Get your API key from: https://platform.openai.com/api-keys
+                        2. Set it as environment variable:
+                        
+                        **PowerShell:**
+                        ```powershell
+                        $env:OPENAI_API_KEY = "your-api-key-here"
+                        ```
+                        
+                        **Command Prompt:**
+                        ```cmd
+                        set OPENAI_API_KEY=your-api-key-here
+                        ```
+                        
+                        3. Restart Streamlit server
+                        4. Click this button again
+                        """)
+                        
+                        # Optional: Allow setting in session (temporary)
+                        with st.expander("🔑 Enter API Key (Temporary - for this session only)"):
+                            temp_key = st.text_input("OpenAI API Key", type="password", key="temp_api_key")
+                            if st.button("Set Temporary Key", key="set_temp_key"):
+                                if temp_key:
+                                    os.environ['OPENAI_API_KEY'] = temp_key
+                                    st.success("✅ API key set for this session!")
+                                    st.info("💡 Restart Streamlit to make it permanent")
+                                    time.sleep(1)
+                                    st.rerun()
         
         st.subheader("About")
         st.info("""
@@ -153,7 +260,8 @@ def main():
             st.rerun()
         
         if process_button and code_input:
-            process_code(code_input, language, use_refinement, use_verification)
+            privacy_first = st.session_state.get('privacy_first_mode', True)
+            process_code(code_input, language, use_refinement, use_verification, privacy_first)
         elif process_button and not code_input:
             st.error("Please provide code to analyze")
     
@@ -166,8 +274,44 @@ def main():
 def check_codellama_status():
     """Check if CodeLlama is available"""
     try:
-        return st.session_state.framework.fix_generator.codellama.is_available()
-    except Exception:
+        # Force refresh by checking availability
+        codellama = st.session_state.framework.fix_generator.codellama
+        # Try to update the URL if needed
+        if hasattr(codellama, 'ollama_url'):
+            # Check both ports
+            for port in [11500, 11434]:
+                try:
+                    import requests
+                    response = requests.get(f"http://localhost:{port}/api/tags", timeout=2)
+                    if response.status_code == 200:
+                        data = response.json()
+                        models = data.get('models', [])
+                        for model in models:
+                            if 'codellama' in model.get('name', '').lower():
+                                codellama.ollama_url = f"http://localhost:{port}"
+                                os.environ['OLLAMA_PORT'] = str(port)
+                                os.environ['OLLAMA_URL'] = codellama.ollama_url
+                                break
+                except:
+                    continue
+        return codellama.is_available()
+    except Exception as e:
+        # If framework not initialized, try direct check
+        try:
+            import requests
+            for port in [11500, 11434]:
+                try:
+                    response = requests.get(f"http://localhost:{port}/api/tags", timeout=2)
+                    if response.status_code == 200:
+                        data = response.json()
+                        models = data.get('models', [])
+                        for model in models:
+                            if 'codellama' in model.get('name', '').lower():
+                                return True
+                except:
+                    continue
+        except:
+            pass
         return False
 
 def check_chatgpt_status():
@@ -177,10 +321,13 @@ def check_chatgpt_status():
     except Exception:
         return False
 
-def process_code(code: str, language: str, use_refinement: bool, use_verification: bool):
+def process_code(code: str, language: str, use_refinement: bool, use_verification: bool, privacy_first: bool = True):
     """Process code for vulnerabilities"""
     
     st.session_state.processing = True
+    
+    # Set privacy-first mode in framework
+    st.session_state.framework.fix_generator.router.privacy_first_mode = privacy_first
     
     # Create temporary file
     with tempfile.NamedTemporaryFile(mode='w', suffix=f'.{language}', delete=False) as f:
@@ -442,7 +589,23 @@ def generate_download_content(repair_result: dict, language: str, original_code:
     # Processing Information
     content.append("PROCESSING INFORMATION:")
     content.append("-" * 80)
-    content.append(f"Model Used: {repair_result.get('model_used', 'Unknown')}")
+    model_used = repair_result.get('model_used', 'Unknown')
+    routing_decision = repair_result.get('routing_decision', {})
+    privacy_required = routing_decision.get('privacy_required', False)
+    
+    if privacy_required:
+        content.append(f"🔒 Model Used: {model_used} (Local LLM - Privacy Protected)")
+        content.append("   Reason: Sensitive code detected (passwords, secrets, credentials)")
+        content.append("   Security: Code processed locally, never sent to cloud")
+    else:
+        content.append(f"✅ Model Used: {model_used} (Cloud LLM - Better Accuracy)")
+        content.append("   Reason: Normal code - using cloud for optimal accuracy")
+    
+    if routing_decision.get('reasons'):
+        content.append("   Routing Reasons:")
+        for reason in routing_decision.get('reasons', []):
+            content.append(f"     - {reason}")
+    
     content.append(f"Iterations: {repair_result.get('iterations', 1)}")
     content.append(f"Processing Time: {repair_result.get('processing_time', 0):.2f}s")
     content.append("")
@@ -563,7 +726,21 @@ def display_results():
             # Processing info
             st.write(f"**Iterations:** {repair_result.get('iterations', 1)}")
             st.write(f"**Processing Time:** {repair_result.get('processing_time', 0):.2f}s")
-            st.write(f"**Model Used:** {repair_result.get('model_used', 'Unknown')}")
+            model_used = repair_result.get('model_used', 'Unknown')
+            routing_decision = repair_result.get('routing_decision', {})
+            privacy_required = routing_decision.get('privacy_required', False)
+            
+            if privacy_required:
+                st.write(f"**🔒 Model Used:** {model_used} (Local LLM - Privacy Protected)")
+                st.info("Sensitive code detected - processed locally for security")
+            else:
+                st.write(f"**✅ Model Used:** {model_used} (Cloud LLM - Better Accuracy)")
+                st.info("Normal code - using cloud for optimal accuracy")
+            
+            if routing_decision.get('reasons'):
+                with st.expander("Routing Decision Details"):
+                    for reason in routing_decision.get('reasons', []):
+                        st.write(f"- {reason}")
             
             # Download fixed code with description
             download_content = generate_download_content(

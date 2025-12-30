@@ -1,0 +1,17 @@
+# Pre-commit configuration for Hybrid LLM Framework
+# Install: pip install pre-commit
+# Setup: pre-commit install
+
+repos:
+  - repo: local
+    hooks:
+      - id: hybrid-llm-security-scan
+        name: Hybrid LLM Security Scan
+        entry: python scripts/pre_commit_scan.py
+        language: system
+        pass_filenames: false
+        always_run: true
+        stages: [commit]
+        description: "Scan staged files for security vulnerabilities using Hybrid LLM Framework"
+
+

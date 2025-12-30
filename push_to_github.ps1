@@ -77,15 +77,20 @@ if ($LASTEXITCODE -ne 0) {
 # Commit
 Write-Host "Committing changes..." -ForegroundColor Yellow
 $commitMessage = @"
-Complete Hybrid LLM-Based Detect-Fix-Verify Framework implementation
+Complete Hybrid LLM-Based Detect-Fix-Verify Framework with CI/CD and IDE Integration
 
-- Full framework implementation with hybrid LLM routing
-- CodeLlama 13B local and ChatGPT-4 cloud integration  
+Major Features:
+- Hybrid LLM routing (CodeLlama 13B local + ChatGPT-4 cloud)
+- Privacy-first routing with toggle feature
 - Exploit-based verification system
-- Multi-iteration refinement
+- Multi-iteration refinement with convergence detection
 - Web UI with Streamlit
-- Evaluation and benchmarking tools
-- Comprehensive documentation
+- CI/CD Integration (GitHub Actions, Jenkins, GitLab CI)
+- Pre-commit hooks for vulnerability scanning
+- IDE Integration (VS Code, PyCharm, IntelliJ plugins)
+- Backend API server for IDE integrations
+- Comprehensive documentation and literature review
+- Quality improvement guides and feature roadmap
 "@
 
 git commit -m $commitMessage

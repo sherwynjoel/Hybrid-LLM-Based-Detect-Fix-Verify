@@ -1,0 +1,40 @@
+stages:
+  - security
+
+variables:
+  PYTHON_VERSION: "3.9"
+
+security_scan:
+  stage: security
+  image: python:3.9
+  before_script:
+    - pip install --upgrade pip
+    - pip install -r requirements.txt
+    - pip install flask flask-cors
+  script:
+    - |
+      echo "Starting API server..."
+      python ide-integration/backend/api_server.py &
+      sleep 5
+    - |
+      echo "Running security scan..."
+      python scripts/ci_scan.py \
+        --path . \
+        --output security-report.json \
+        --fail-on-critical
+    - |
+      echo "Checking results..."
+      python scripts/check_ci_results.py security-report.json
+  artifacts:
+    paths:
+      - security-report.json
+    reports:
+      junit: security-report.json
+    expire_in: 1 week
+  only:
+    - merge_requests
+    - main
+    - develop
+  allow_failure: false
+
+

@@ -1,0 +1,117 @@
+name: Hybrid LLM Security Scan
+
+on:
+  push:
+    branches: [ main, develop, 'feature/**' ]
+  pull_request:
+    branches: [ main, develop ]
+  schedule:
+    # Run daily at 2 AM UTC
+    - cron: '0 2 * * *'
+
+jobs:
+  security-scan:
+    name: Security Vulnerability Scan
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+      
+      - name: Set up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.9'
+          cache: 'pip'
+      
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+          pip install flask flask-cors
+      
+      - name: Start API server
+        run: |
+          python ide-integration/backend/api_server.py &
+          sleep 5
+        env:
+          # Note: OPENAI_API_KEY is optional - workflow will continue if not set
+          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+          OLLAMA_PORT: 11434
+        continue-on-error: true
+      
+      - name: Run security scan
+        id: scan
+        run: |
+          python scripts/ci_scan.py \
+            --path . \
+            --output security-report.json \
+            --format json \
+            --fail-on-critical
+        continue-on-error: true
+      
+      - name: Check scan results
+        run: |
+          python scripts/check_ci_results.py security-report.json
+      
+      - name: Upload security report
+        uses: actions/upload-artifact@v3
+        if: always()
+        with:
+          name: security-report-${{ github.run_number }}
+          path: security-report.json
+          retention-days: 30
+      
+      - name: Generate summary
+        if: always()
+        run: |
+          python scripts/generate_ci_summary.py security-report.json >> $GITHUB_STEP_SUMMARY
+      
+      - name: Comment on PR
+        if: github.event_name == 'pull_request' && always()
+        uses: actions/github-script@v6
+        with:
+          script: |
+            const fs = require('fs');
+            let report = {};
+            try {
+              report = JSON.parse(fs.readFileSync('security-report.json', 'utf8'));
+            } catch (e) {
+              report = { error: 'Report not available' };
+            }
+            
+            const vulnerabilities = report.vulnerabilities || [];
+            const critical = vulnerabilities.filter(v => v.severity === 'CRITICAL').length;
+            const high = vulnerabilities.filter(v => v.severity === 'HIGH').length;
+            const medium = vulnerabilities.filter(v => v.severity === 'MEDIUM').length;
+            const low = vulnerabilities.filter(v => v.severity === 'LOW').length;
+            
+            const body = `## 🔒 Security Scan Results
+            
+            **Scan completed for commit:** ${context.sha.substring(0, 7)}
+            
+            ### Vulnerability Summary
+            - 🔴 **Critical**: ${critical}
+            - 🟠 **High**: ${high}
+            - 🟡 **Medium**: ${medium}
+            - 🟢 **Low**: ${low}
+            - **Total**: ${vulnerabilities.length}
+            
+            ${critical > 0 ? '⚠️ **Critical vulnerabilities found! Merge blocked.**' : '✅ No critical vulnerabilities found.'}
+            
+            [View full report](https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }})
+            `;
+            
+            github.rest.issues.createComment({
+              issue_number: context.issue.number,
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              body: body
+            });
+      
+      - name: Fail on critical vulnerabilities
+        if: steps.scan.outcome == 'failure'
+        run: |
+          echo "❌ Critical vulnerabilities found. Merge blocked."
+          exit 1
+

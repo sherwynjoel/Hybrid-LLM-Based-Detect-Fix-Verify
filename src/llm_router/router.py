@@ -13,48 +13,138 @@ class LLMRouter:
     def __init__(self):
         self.parser = CodeParser()
         self.privacy_keywords = config.config.get('router', {}).get('privacy_keywords', [])
+        self.privacy_first_mode = True  # Default: Privacy-first mode enabled
     
     def route(self, code: str, vulnerability: Dict, language: str) -> str:
         """
         Route to appropriate LLM model
+        
+        Privacy-First Mode (privacy_first_mode=True):
+        - Sensitive code (passwords, secrets, credentials) → Local LLM (privacy)
+        - Normal code → Cloud LLM (better accuracy)
+        - Complex code → Cloud LLM (if not sensitive)
+        
+        Efficiency Mode (privacy_first_mode=False):
+        - Sensitive code → Local LLM (always, for security)
+        - Simple code → Local LLM (efficiency)
+        - Complex/High severity → Cloud LLM (accuracy)
+        
         Returns: 'local' or 'cloud'
         """
-        # Check privacy requirements
+        # PRIORITY 1: Check privacy/security requirements FIRST
+        # Sensitive code MUST stay local for privacy and security (always)
         if self._requires_privacy(code, vulnerability):
             return 'local'
         
-        # Check complexity
+        # If privacy-first mode is disabled, use efficiency-based routing
+        if not self.privacy_first_mode:
+            # Efficiency Mode: Default to local for efficiency
+            complexity_score = self._calculate_complexity(code, vulnerability, language)
+            if complexity_score > config.complexity_threshold:
+                return 'cloud'
+            
+            severity = vulnerability.get('severity', 'MEDIUM').upper()
+            if severity in ['CRITICAL', 'HIGH']:
+                return 'cloud'
+            
+            # Default to local for efficiency
+            return 'local'
+        
+        # Privacy-First Mode: Default to cloud for better accuracy
+        # Check complexity - complex code benefits from cloud LLM
         complexity_score = self._calculate_complexity(code, vulnerability, language)
         if complexity_score > config.complexity_threshold:
             return 'cloud'
         
-        # Check vulnerability severity
+        # High severity vulnerabilities benefit from cloud accuracy
         severity = vulnerability.get('severity', 'MEDIUM').upper()
         if severity in ['CRITICAL', 'HIGH']:
             return 'cloud'
         
-        # Default to local for efficiency
-        return 'local'
+        # DEFAULT: Normal code goes to cloud for better accuracy
+        # (Only sensitive code goes to local)
+        return 'cloud'
     
     def _requires_privacy(self, code: str, vulnerability: Dict) -> bool:
-        """Check if code contains sensitive information requiring local processing"""
-        code_lower = code.lower()
+        """
+        Check if code contains sensitive information requiring local processing
         
+        Detects:
+        - Passwords, secrets, API keys, tokens
+        - Security codes, encryption keys
+        - Credentials, authentication data
+        - Personal identifiable information (PII)
+        - Financial information
+        """
+        code_lower = code.lower()
+        full_code = code  # Search in full code, not just lowercased
+        
+        # Check privacy keywords in code
         for keyword in self.privacy_keywords:
             if keyword.lower() in code_lower:
                 return True
         
-        # Check for API keys, tokens, credentials in context
-        context = vulnerability.get('context', '')
+        # Enhanced sensitive pattern detection
         sensitive_patterns = [
-            r'api[_-]?key\s*[:=]\s*["\'][^"\']+["\']',
-            r'token\s*[:=]\s*["\'][^"\']+["\']',
+            # Passwords and credentials
             r'password\s*[:=]\s*["\'][^"\']+["\']',
+            r'passwd\s*[:=]\s*["\'][^"\']+["\']',
+            r'pwd\s*[:=]\s*["\'][^"\']+["\']',
+            r'credential\s*[:=]\s*["\'][^"\']+["\']',
+            r'auth\s*[:=]\s*["\'][^"\']+["\']',
+            
+            # API keys and tokens
+            r'api[_-]?key\s*[:=]\s*["\'][^"\']+["\']',
+            r'apikey\s*[:=]\s*["\'][^"\']+["\']',
+            r'token\s*[:=]\s*["\'][^"\']+["\']',
+            r'access[_-]?token\s*[:=]\s*["\'][^"\']+["\']',
+            r'bearer[_-]?token\s*[:=]\s*["\'][^"\']+["\']',
+            
+            # Secrets and keys
             r'secret\s*[:=]\s*["\'][^"\']+["\']',
+            r'secret[_-]?key\s*[:=]\s*["\'][^"\']+["\']',
+            r'private[_-]?key\s*[:=]\s*["\'][^"\']+["\']',
+            r'encryption[_-]?key\s*[:=]\s*["\'][^"\']+["\']',
+            r'decryption[_-]?key\s*[:=]\s*["\'][^"\']+["\']',
+            
+            # Security codes
+            r'security[_-]?code\s*[:=]\s*["\'][^"\']+["\']',
+            r'pin\s*[:=]\s*["\'][^"\']+["\']',
+            r'passcode\s*[:=]\s*["\'][^"\']+["\']',
+            
+            # Database credentials
+            r'db[_-]?password\s*[:=]\s*["\'][^"\']+["\']',
+            r'database[_-]?password\s*[:=]\s*["\'][^"\']+["\']',
+            r'connection[_-]?string\s*[:=]\s*["\'][^"\']+["\']',
+            
+            # OAuth and authentication
+            r'oauth[_-]?secret\s*[:=]\s*["\'][^"\']+["\']',
+            r'client[_-]?secret\s*[:=]\s*["\'][^"\']+["\']',
+            r'jwt[_-]?secret\s*[:=]\s*["\'][^"\']+["\']',
         ]
         
+        # Check patterns in code
         for pattern in sensitive_patterns:
-            if re.search(pattern, context, re.IGNORECASE):
+            if re.search(pattern, full_code, re.IGNORECASE):
+                return True
+        
+        # Check in vulnerability context
+        context = vulnerability.get('context', '')
+        if context:
+            for pattern in sensitive_patterns:
+                if re.search(pattern, context, re.IGNORECASE):
+                    return True
+        
+        # Check for hardcoded sensitive values (long strings that look like keys)
+        # Look for patterns like: key = "sk_live_..." or password = "Abc123..."
+        hardcoded_patterns = [
+            r'["\'](sk_[a-zA-Z0-9_]{20,})["\']',  # Stripe-like keys
+            r'["\'](pk_[a-zA-Z0-9_]{20,})["\']',  # Public keys
+            r'["\']([a-zA-Z0-9+/]{40,}={0,2})["\']',  # Base64-like secrets
+        ]
+        
+        for pattern in hardcoded_patterns:
+            if re.search(pattern, full_code):
                 return True
         
         return False
@@ -114,19 +204,37 @@ class LLMRouter:
         reasons = []
         
         if self._requires_privacy(code, vulnerability):
-            reasons.append("Privacy-sensitive code detected")
+            reasons.append("🔒 Privacy-sensitive code detected - routing to Local LLM for security")
+        
+        if not self.privacy_first_mode:
+            reasons.append("⚡ Efficiency Mode: Using default routing strategy")
         
         complexity = self._calculate_complexity(code, vulnerability, language)
         if complexity > config.complexity_threshold:
-            reasons.append(f"High complexity ({complexity})")
+            if self.privacy_first_mode:
+                reasons.append(f"High complexity ({complexity}) - routing to Cloud LLM for better accuracy")
+            else:
+                reasons.append(f"High complexity ({complexity}) - routing to Cloud LLM")
         
         severity = vulnerability.get('severity', 'MEDIUM')
         if severity in ['CRITICAL', 'HIGH']:
-            reasons.append(f"High severity vulnerability ({severity})")
+            if self.privacy_first_mode:
+                reasons.append(f"High severity vulnerability ({severity}) - routing to Cloud LLM for better accuracy")
+            else:
+                reasons.append(f"High severity vulnerability ({severity}) - routing to Cloud LLM")
+        
+        if not self._requires_privacy(code, vulnerability):
+            if self.privacy_first_mode and decision == 'cloud':
+                reasons.append("Normal code - routing to Cloud LLM for optimal accuracy")
+            elif not self.privacy_first_mode and decision == 'local':
+                reasons.append("Simple code - routing to Local LLM for efficiency")
         
         if not local_available:
-            decision = 'cloud'
-            reasons.append("Local model not available")
+            if self._requires_privacy(code, vulnerability):
+                reasons.append("⚠️ WARNING: Local model not available but sensitive code detected!")
+            else:
+                decision = 'cloud'
+                reasons.append("Local model not available - using Cloud LLM")
         
         return {
             'model': decision,
