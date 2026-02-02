@@ -15,7 +15,7 @@
     ]]></description>
 
     <change-notes><![CDATA[
-    Initial release with VS Code-style integration
+    Initial release with real-time vulnerability detection and repair
     ]]></change-notes>
 
     <depends>com.intellij.modules.platform</depends>

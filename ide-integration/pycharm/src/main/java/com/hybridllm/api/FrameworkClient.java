@@ -12,7 +12,8 @@ import java.util.ArrayList;
 import java.util.List;
 
 public class FrameworkClient {
-    private static final String DEFAULT_API_URL = "http://localhost:8501/api";
+    // API server uses port 8502 to avoid conflict with Streamlit UI (8501)
+    private static final String DEFAULT_API_URL = "http://localhost:8502/api";
     private final String apiUrl;
     private final OkHttpClient client;
     private final Gson gson;

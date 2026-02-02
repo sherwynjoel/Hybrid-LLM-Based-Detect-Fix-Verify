@@ -1,30 +1,21 @@
-# IDE Integration: VS Code, PyCharm, IntelliJ
+# IDE Integration: PyCharm Plugin
 
 ## 🎯 Overview
 
-IDE plugins for real-time vulnerability detection and repair in your favorite IDE.
+PyCharm plugin for real-time vulnerability detection and repair in PyCharm IDE.
 
 ---
 
 ## 📦 Components
 
-### 1. **VS Code Extension**
-- Real-time analysis
-- In-editor fixes
-- Code actions
-- Workspace analysis
-
-### 2. **PyCharm Plugin**
+### 1. **PyCharm Plugin**
 - IntelliJ-based plugin
 - Python-focused
 - Real-time inspections
+- In-editor fixes
 
-### 3. **IntelliJ Plugin**
-- Java-focused
-- Full IntelliJ platform support
-
-### 4. **Backend API Server**
-- RESTful API for all IDE plugins
+### 2. **Backend API Server**
+- RESTful API for the PyCharm plugin
 - Unified backend service
 
 ---
@@ -35,27 +26,31 @@ IDE plugins for real-time vulnerability detection and repair in your favorite ID
 
 ```bash
 # Install dependencies
-pip install flask flask-cors
+cd ide-integration/backend
+pip install -r requirements.txt
+# Also install main project requirements
+cd ../..
+pip install -r requirements.txt
 
 # Start API server
 python ide-integration/backend/api_server.py
 ```
 
-Server runs on: `http://localhost:8501/api`
+Server runs on: `http://localhost:8502/api` (port 8502 to avoid conflict with Streamlit UI on 8501)
 
-### Step 2: Install IDE Plugin
+### Step 2: Install PyCharm Plugin
 
-#### VS Code:
-```bash
-cd ide-integration/vscode
-npm install
-npm run compile
-# Press F5 to launch extension
-```
+1. **Build the plugin**:
+   ```bash
+   cd ide-integration/pycharm
+   ./gradlew buildPlugin
+   ```
 
-#### PyCharm/IntelliJ:
-- Build plugin using IntelliJ SDK
-- Install from disk
+2. **Install in PyCharm**:
+   - File → Settings → Plugins
+   - Click the gear icon → Install Plugin from Disk
+   - Select the JAR file from `ide-integration/pycharm/build/distributions/`
+   - Restart PyCharm
 
 ---
 
@@ -85,57 +80,37 @@ npm run compile
 
 ## 🔧 Configuration
 
-### VS Code Settings
-
-```json
-{
-  "hybridLLM.enable": true,
-  "hybridLLM.privacyFirstMode": true,
-  "hybridLLM.apiUrl": "http://localhost:8501/api",
-  "hybridLLM.autoFix": false
-}
-```
-
-### PyCharm/IntelliJ Settings
+### PyCharm Settings
 
 - File → Settings → Tools → Hybrid LLM
-- Configure API URL
+- Configure API URL (default: `http://localhost:8502/api`)
 - Enable/disable features
+- Toggle privacy-first mode
 
 ---
 
 ## 📖 Usage
 
-### VS Code
-
-1. **Analyze File**: 
-   - Command Palette (Ctrl+Shift+P) → "Analyze File for Vulnerabilities"
-   
-2. **Fix Vulnerability**:
-   - Hover over diagnostic
-   - Click "Quick Fix" or press Ctrl+.
-   - Select fix option
-
-3. **Analyze Workspace**:
-   - Command Palette → "Analyze Workspace"
-
 ### PyCharm
 
 1. **Analyze File**:
    - Tools → Analyze File for Vulnerabilities
-   - Or Ctrl+Alt+A
+   - Or use keyboard shortcut: `Ctrl+Alt+A`
 
-2. **Fix Vulnerability**:
-   - Alt+Enter on highlighted code
+2. **Analyze Project**:
+   - Tools → Analyze Project for Vulnerabilities
+   - Analyzes all supported files in the project
+
+3. **Fix Vulnerability**:
+   - Place cursor on vulnerable code
+   - Press `Alt+Enter` (or click the lightbulb icon)
    - Select "Fix vulnerability"
+   - Review the fix in diff view
+   - Apply if satisfied
 
-### IntelliJ
-
-1. **Analyze File**:
-   - Tools → Analyze File for Vulnerabilities
-
-2. **Fix Vulnerability**:
-   - Alt+Enter → Quick fix
+4. **Toggle Privacy Mode**:
+   - Tools → Toggle Privacy-First Mode
+   - Switches between privacy-first and efficiency modes
 
 ---
 
@@ -205,18 +180,28 @@ Get framework status
 }
 ```
 
+### POST `/api/analyze-file`
+Analyze file from path
+
+**Request**:
+```json
+{
+  "file_path": "/path/to/file.py"
+}
+```
+
 ---
 
 ## 🛠️ Development
 
-### VS Code Extension
+### Building the Plugin
 
 ```bash
-cd ide-integration/vscode
-npm install
-npm run compile
-npm run watch  # For development
+cd ide-integration/pycharm
+./gradlew buildPlugin
 ```
+
+The plugin JAR will be created in `build/distributions/`
 
 ### Backend API
 
@@ -230,21 +215,18 @@ python api_server.py
 
 ## 📝 Requirements
 
+- PyCharm IDE (2020.3 or later)
 - Hybrid LLM Framework running
-- Backend API server on port 8501
+- Backend API server on port 8502 (Streamlit UI uses 8501)
 - Supported languages: Python, JavaScript, TypeScript, Java, C/C++
 
 ---
 
 ## ✅ Status
 
-- ✅ VS Code Extension: Implemented
+- ✅ PyCharm Plugin: Implemented
 - ✅ Backend API: Implemented
-- ⚠️ PyCharm Plugin: Structure created (needs IntelliJ SDK)
-- ⚠️ IntelliJ Plugin: Structure created (needs IntelliJ SDK)
 
 ---
 
-**See individual README files in each IDE folder for detailed setup instructions.**
-
-
+**See `pycharm/README.md` for detailed setup instructions.**

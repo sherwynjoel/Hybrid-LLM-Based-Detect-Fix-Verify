@@ -1,3 +1,4 @@
+
 @echo off
 echo ========================================
 echo Diagnosing Local LLM Setup
@@ -8,5 +9,9 @@ python scripts/diagnose_ollama.py
 
 echo.
 pause
+
+
+
+
 
 

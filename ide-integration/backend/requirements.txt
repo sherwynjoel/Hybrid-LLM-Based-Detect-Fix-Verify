@@ -1,5 +1,26 @@
+# Backend API server dependencies
 flask==3.0.0
 flask-cors==4.0.0
 requests==2.31.0
+
+# Note: The backend API server imports from the main framework,
+# so you also need to install the main project requirements:
+# pip install -r ../requirements.txt
+#
+# Or install these core dependencies directly:
+openai>=1.0.0
+transformers>=4.35.0
+torch>=2.0.0
+ollama>=0.1.0
+bandit>=1.7.5
+semgrep>=1.40.0
+ast-comments>=1.1.1
+tree-sitter>=0.20.4
+tree-sitter-python>=0.20.4
+tree-sitter-cpp>=0.20.4
+tree-sitter-java>=0.20.4
+pyyaml>=6.0
+python-dotenv>=1.0.0
+
 
 

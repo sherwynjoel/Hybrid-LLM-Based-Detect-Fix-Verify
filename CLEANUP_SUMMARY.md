@@ -99,9 +99,7 @@
 ### IDE Integration
 ✅ **ALL PRESERVED** (if using)
 - `ide-integration/backend/` - API server
-- `ide-integration/vscode/` - VS Code extension
 - `ide-integration/pycharm/` - PyCharm plugin
-- `ide-integration/intellij/` - IntelliJ plugin
 - `ide-integration/README.md` - Main IDE docs
 
 ### Essential Scripts
@@ -220,4 +218,5 @@ Project Root/
 ---
 
 *Cleanup completed successfully. All essential files preserved. Project structure is now clean and maintainable.*
+
 

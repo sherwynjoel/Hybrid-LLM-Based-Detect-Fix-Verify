@@ -70,7 +70,7 @@ This creates a `.zip` file in `build/distributions/` that can be installed in Py
 
 ## Configuration
 
-The plugin connects to the backend API at `http://localhost:8501/api` by default.
+The plugin connects to the backend API at `http://localhost:8502/api` by default (port 8502 to avoid conflict with Streamlit UI on 8501).
 
 To change the API URL:
 1. Go to **File → Settings → Tools → Hybrid LLM**
@@ -131,5 +131,6 @@ pycharm/
 For issues and questions:
 - GitHub: https://github.com/sherwynjoel/Hybrid-LLM-Based-Detect-Fix-Verify
 - Check `ide-integration/README.md` for general IDE integration info
+
 
 

@@ -29,11 +29,13 @@ try {
 }
 
 Write-Host ""
-Write-Host "Starting API server on http://localhost:8501" -ForegroundColor Green
+Write-Host "Starting API server on http://localhost:8502" -ForegroundColor Green
+Write-Host "Note: Streamlit UI uses port 8501, API server uses port 8502" -ForegroundColor Cyan
 Write-Host "Press Ctrl+C to stop" -ForegroundColor Yellow
 Write-Host ""
 
 # Start server
 python api_server.py
+
 
 

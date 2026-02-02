@@ -87,7 +87,7 @@ Major Features:
 - Web UI with Streamlit
 - CI/CD Integration (GitHub Actions, Jenkins, GitLab CI)
 - Pre-commit hooks for vulnerability scanning
-- IDE Integration (VS Code, PyCharm, IntelliJ plugins)
+- IDE Integration (PyCharm plugin)
 - Backend API server for IDE integrations
 - Comprehensive documentation and literature review
 - Quality improvement guides and feature roadmap

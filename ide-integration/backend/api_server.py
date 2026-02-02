@@ -1,6 +1,6 @@
 """
-Backend API server for IDE integrations
-Provides REST API for VS Code, PyCharm, and IntelliJ plugins
+Backend API server for IDE integration
+Provides REST API for PyCharm plugin
 """
 
 from flask import Flask, request, jsonify
@@ -191,9 +191,14 @@ def status():
         }), 500
 
 if __name__ == '__main__':
+    import os
+    # Use port 8502 for API server to avoid conflict with Streamlit UI (8501)
+    api_port = int(os.environ.get('API_PORT', 8502))
     print("Starting IDE Integration API Server...")
-    print("API available at: http://localhost:8501/api")
-    print("Health check: http://localhost:8501/health")
-    app.run(host='0.0.0.0', port=8501, debug=False)
+    print(f"API available at: http://localhost:{api_port}/api")
+    print(f"Health check: http://localhost:{api_port}/health")
+    print("Note: Streamlit UI uses port 8501, API server uses port 8502")
+    app.run(host='0.0.0.0', port=api_port, debug=False)
+
 
 

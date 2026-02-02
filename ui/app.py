@@ -13,13 +13,15 @@ import time
 import tempfile
 import os
 
+import matplotlib.pyplot as plt
+import io
 from src.main import VulnerabilityRepairFramework
 from src.utils.config import config
 
 # Page configuration
 st.set_page_config(
     page_title="Hybrid LLM Vulnerability Repair Framework",
-    page_icon="🔒",
+    page_icon="",
     layout="wide",
     initial_sidebar_state="expanded"
 )
@@ -30,7 +32,7 @@ st.markdown("""
     .main-header {
         font-size: 2.5rem;
         font-weight: bold;
-        color: #1f77b4;
+        color: #4F8BF9;
         text-align: center;
         margin-bottom: 2rem;
     }
@@ -76,12 +78,12 @@ def main():
     """Main UI function"""
     
     # Header
-    st.markdown('<div class="main-header">🔒 Hybrid LLM Vulnerability Repair Framework</div>', 
+    st.markdown('<div class="main-header">Hybrid LLM Vulnerability Repair Framework</div>', 
                 unsafe_allow_html=True)
     
     # Sidebar
     with st.sidebar:
-        st.header("⚙️ Configuration")
+        st.header("Configuration")
         
         st.subheader("LLM Settings")
         use_refinement = st.checkbox("Enable Multi-Iteration Refinement", value=True, key="refinement_checkbox")
@@ -89,7 +91,7 @@ def main():
         
         st.divider()
         
-        st.subheader("🔒 Privacy & Security")
+        st.subheader("Privacy & Security")
         privacy_first_mode = st.checkbox(
             "Enable Privacy-First Routing",
             value=True,
@@ -98,10 +100,10 @@ def main():
         )
         
         if privacy_first_mode:
-            st.success("🔒 Privacy-First Mode: ACTIVE")
+            st.success("Privacy-First Mode: ACTIVE")
             st.caption("Sensitive code stays local, normal code uses cloud")
         else:
-            st.info("⚡ Efficiency Mode: ACTIVE")
+            st.info("Efficiency Mode: ACTIVE")
             st.caption("Default routing for optimal performance")
         
         st.divider()
@@ -113,42 +115,48 @@ def main():
         col1, col2 = st.columns(2)
         with col1:
             if codellama_status:
-                st.success("**CodeLlama 13B (Local):** ✅ Available")
+                st.success("**CodeLlama 13B (Local):** Available")
             else:
-                st.error("**CodeLlama 13B (Local):** ❌ Not Available")
+                st.error("**CodeLlama 13B (Local):** Not Available")
             
-            # Always show connection button
-            if st.button("🔌 Connect/Reconnect Local LLM", key="connect_llm_btn", use_container_width=True):
-                with st.spinner("Connecting to Ollama server..."):
-                    import subprocess
-                    try:
-                        # Try to start/connect Ollama
-                        result = subprocess.run(
-                            ["python", "scripts/auto_start_ollama.py"],
-                            capture_output=True,
-                            text=True,
-                            timeout=30
-                        )
-                        if result.returncode == 0:
-                            st.success("✅ Connected! Refreshing status...")
-                            time.sleep(1)
-                            st.rerun()
-                        else:
-                            st.error(f"Failed to connect: {result.stderr}")
-                            st.info("💡 Try running: `.\START_LOCAL_LLM_EASY.bat`")
-                    except Exception as e:
-                        st.error(f"Error: {str(e)}")
-                        st.info("💡 Try running: `.\START_LOCAL_LLM_EASY.bat`")
+            # Local LLM control buttons
+            btn_col1, btn_col2 = st.columns(2)
+            with btn_col1:
+                if st.button("Connect/Reconnect", key="connect_llm_btn", use_container_width=True):
+                    with st.spinner("Connecting to Ollama server..."):
+                        import subprocess
+                        try:
+                            # Try to start/connect Ollama
+                            result = subprocess.run(
+                                ["python", "scripts/auto_start_ollama.py"],
+                                capture_output=True,
+                                text=True,
+                                timeout=30
+                            )
+                            if result.returncode == 0:
+                                st.success("Connected! Refreshing status...")
+                                time.sleep(1)
+                                st.rerun()
+                            else:
+                                st.error(f"Failed to connect: {result.stderr}")
+                                st.info("Try running: `.\START_LOCAL_LLM_EASY.bat`")
+                        except Exception as e:
+                            st.error(f"Error: {str(e)}")
+                            st.info("Try running: `.\START_LOCAL_LLM_EASY.bat`")
+            
+            with btn_col2:
+                if st.button("Stop Local LLM", key="stop_llm_btn", use_container_width=True):
+                    stop_local_llm()
         
         with col2:
             if chatgpt_status:
-                st.success("**ChatGPT-4 (Cloud):** ✅ Available")
+                st.success("**ChatGPT-4 (Cloud):** Available")
             else:
-                st.error("**ChatGPT-4 (Cloud):** ❌ Not Available")
+                st.error("**ChatGPT-4 (Cloud):** Not Available")
                 st.caption("Set OPENAI_API_KEY environment variable")
             
             # Always show connection button for cloud LLM
-            if st.button("☁️ Connect/Reconnect Cloud LLM", key="connect_cloud_llm_btn", use_container_width=True):
+            if st.button("Connect/Reconnect Cloud LLM", key="connect_cloud_llm_btn", use_container_width=True):
                 with st.spinner("Checking OpenAI API key..."):
                     import os
                     api_key = os.getenv('OPENAI_API_KEY', '')
@@ -159,17 +167,17 @@ def main():
                             from src.llm_models.chatgpt_cloud import ChatGPTCloud
                             chatgpt = ChatGPTCloud()
                             if chatgpt.is_available():
-                                st.success("✅ Connected! Refreshing status...")
+                                st.success("Connected! Refreshing status...")
                                 time.sleep(1)
                                 st.rerun()
                             else:
-                                st.error("❌ API key is set but connection failed")
-                                st.info("💡 Check if your API key is valid")
+                                st.error("API key is set but connection failed")
+                                st.info("Check if your API key is valid")
                         except Exception as e:
                             st.error(f"Error: {str(e)}")
                     else:
                         # Show input for API key
-                        st.warning("⚠️ OPENAI_API_KEY not set")
+                        st.warning("OPENAI_API_KEY not set")
                         st.info("""
                         **To connect ChatGPT-4:**
                         
@@ -191,13 +199,13 @@ def main():
                         """)
                         
                         # Optional: Allow setting in session (temporary)
-                        with st.expander("🔑 Enter API Key (Temporary - for this session only)"):
+                        with st.expander("Enter API Key (Temporary - for this session only)"):
                             temp_key = st.text_input("OpenAI API Key", type="password", key="temp_api_key")
                             if st.button("Set Temporary Key", key="set_temp_key"):
                                 if temp_key:
                                     os.environ['OPENAI_API_KEY'] = temp_key
-                                    st.success("✅ API key set for this session!")
-                                    st.info("💡 Restart Streamlit to make it permanent")
+                                    st.success("API key set for this session!")
+                                    st.info("Restart Streamlit to make it permanent")
                                     time.sleep(1)
                                     st.rerun()
         
@@ -208,21 +216,21 @@ def main():
         """)
     
     # Main content area
-    tab1, tab2, tab3 = st.tabs(["🔍 Code Analysis", "📊 Results & Metrics", "📚 Documentation"])
+    tab1, tab2, tab3 = st.tabs(["Code Analysis", "Results & Metrics", "Documentation"])
     
     with tab1:
         st.header("Upload or Paste Code")
         
         input_method = st.radio(
             "Select input method:",
-            ["📝 Paste Code", "📁 Upload File"],
+            ["Paste Code", "Upload File"],
             horizontal=True
         )
         
         code_input = ""
         language = None
         
-        if input_method == "📝 Paste Code":
+        if input_method == "Paste Code":
             language = st.selectbox(
                 "Programming Language",
                 ["python", "cpp", "c", "java"],
@@ -251,9 +259,9 @@ def main():
         # Process button
         col1, col2, col3 = st.columns([1, 1, 2])
         with col1:
-            process_button = st.button("🚀 Analyze & Repair", type="primary", use_container_width=True)
+            process_button = st.button("Analyze & Repair", type="primary", use_container_width=True)
         with col2:
-            clear_button = st.button("🗑️ Clear", use_container_width=True)
+            clear_button = st.button("Clear", use_container_width=True)
         
         if clear_button:
             st.session_state.results = None
@@ -321,6 +329,63 @@ def check_chatgpt_status():
     except Exception:
         return False
 
+def stop_local_llm():
+    """Stop the local LLM (Ollama)"""
+    import subprocess
+    import platform
+    
+    with st.spinner("Stopping Ollama server..."):
+        try:
+            if platform.system() == "Windows":
+                # Try using the PowerShell script first
+                try:
+                    result = subprocess.run(
+                        ["powershell", "-ExecutionPolicy", "Bypass", "-File", "STOP_LLM.ps1"],
+                        capture_output=True,
+                        text=True,
+                        timeout=15,
+                        cwd=project_root
+                    )
+                    if result.returncode == 0:
+                        st.success("Local LLM stopped successfully!")
+                        time.sleep(1)
+                        st.rerun()
+                        return
+                except:
+                    pass
+                
+                # Fallback: Direct process kill
+                try:
+                    # Kill Ollama processes
+                    subprocess.run(
+                        ["taskkill", "/F", "/IM", "ollama.exe"],
+                        capture_output=True,
+                        timeout=10
+                    )
+                    st.success("Local LLM stopped successfully!")
+                    time.sleep(1)
+                    st.rerun()
+                except Exception as e:
+                    st.warning(f"Some processes may still be running: {str(e)}")
+                    st.info("You may need to manually stop Ollama from Task Manager")
+            else:
+                # Linux/Mac
+                try:
+                    subprocess.run(
+                        ["pkill", "-f", "ollama"],
+                        capture_output=True,
+                        timeout=10
+                    )
+                    st.success("Local LLM stopped successfully!")
+                    time.sleep(1)
+                    st.rerun()
+                except Exception as e:
+                    st.warning(f"Error stopping Ollama: {str(e)}")
+                    st.info("Try running: `pkill -f ollama` manually")
+        except Exception as e:
+            st.error(f"Error stopping local LLM: {str(e)}")
+            st.info("Try running: `.\STOP_LLM.bat` or `.\STOP_LLM.ps1` manually")
+
 def process_code(code: str, language: str, use_refinement: bool, use_verification: bool, privacy_first: bool = True):
     """Process code for vulnerabilities"""
     
@@ -335,7 +400,7 @@ def process_code(code: str, language: str, use_refinement: bool, use_verificatio
         temp_file = f.name
     
     try:
-        with st.spinner("🔍 Analyzing code for vulnerabilities..."):
+        with st.spinner("Analyzing code for vulnerabilities..."):
             progress_bar = st.progress(0)
             status_text = st.empty()
             
@@ -353,7 +418,7 @@ def process_code(code: str, language: str, use_refinement: bool, use_verificatio
             )
             
             progress_bar.progress(100)
-            status_text.text("✅ Analysis complete!")
+            status_text.text("Analysis complete!")
             time.sleep(0.5)
             
             st.session_state.results = result
@@ -594,11 +659,11 @@ def generate_download_content(repair_result: dict, language: str, original_code:
     privacy_required = routing_decision.get('privacy_required', False)
     
     if privacy_required:
-        content.append(f"🔒 Model Used: {model_used} (Local LLM - Privacy Protected)")
+        content.append(f"Model Used: {model_used} (Local LLM - Privacy Protected)")
         content.append("   Reason: Sensitive code detected (passwords, secrets, credentials)")
         content.append("   Security: Code processed locally, never sent to cloud")
     else:
-        content.append(f"✅ Model Used: {model_used} (Cloud LLM - Better Accuracy)")
+        content.append(f"Model Used: {model_used} (Cloud LLM - Better Accuracy)")
         content.append("   Reason: Normal code - using cloud for optimal accuracy")
     
     if routing_decision.get('reasons'):
@@ -661,13 +726,70 @@ def display_results():
             f"{summary.get('average_processing_time', 0):.2f}s"
         )
     
+    st.divider()
+
+    # --- NEW GRAPHS SECTION ---
+    st.subheader("Visual Analysis")
+    
+    # Prepare data for graphs
+    results_list = result.get('results', [])
+    if results_list:
+        try:
+            vuln_types = {}
+            severities = {}
+            for r in results_list:
+                v = r.get('vulnerability', {})
+                # Vulnerability Type Count
+                v_type = v.get('type', 'Unknown')
+                vuln_types[v_type] = vuln_types.get(v_type, 0) + 1
+                
+                # Severity Count
+                v_sev = v.get('severity', 'Unknown')
+                severities[v_sev] = severities.get(v_sev, 0) + 1
+            
+            graph_col1, graph_col2 = st.columns(2)
+            
+            with graph_col1:
+                st.markdown("**Vulnerability Distribution**")
+                if vuln_types:
+                    fig1, ax1 = plt.subplots(figsize=(5, 4))
+                    ax1.pie(vuln_types.values(), labels=vuln_types.keys(), autopct='%1.1f%%', startangle=90, colors=['#ff9999','#66b3ff','#99ff99','#ffcc99'])
+                    ax1.axis('equal')  # Equal aspect ratio ensures that pie is drawn as a circle.
+                    st.pyplot(fig1, use_container_width=True)
+                    plt.close(fig1)
+            
+            with graph_col2:
+                st.markdown("**Severity Level Breakdown**")
+                if severities:
+                    fig2, ax2 = plt.subplots(figsize=(5, 4))
+                    # Define color map for severities
+                    sev_colors = []
+                    sev_labels = list(severities.keys())
+                    for s in sev_labels:
+                        s_lower = s.lower()
+                        if 'critical' in s_lower: sev_colors.append('#d62728') # Red
+                        elif 'high' in s_lower:   sev_colors.append('#ff7f0e') # Orange
+                        elif 'medium' in s_lower: sev_colors.append('#f7b731') # Yellow
+                        elif 'low' in s_lower:    sev_colors.append('#2ca02c') # Green
+                        else:                     sev_colors.append('#1f77b4') # Blue
+
+                    ax2.bar(sev_labels, severities.values(), color=sev_colors)
+                    ax2.set_ylabel('Count')
+                    st.pyplot(fig2, use_container_width=True)
+                    plt.close(fig2)
+
+        except Exception as e:
+            st.error(f"Could not generate graphs: {str(e)}")
+
+    st.divider()
+
     # Detailed results
     st.subheader("Detailed Results")
     
     results_list = result.get('results', [])
     
     if not results_list:
-        st.success("✅ No vulnerabilities detected in the code!")
+        st.success("No vulnerabilities detected in the code!")
         return
     
     for i, repair_result in enumerate(results_list, 1):
@@ -688,11 +810,11 @@ def display_results():
             # Fixed code
             fixed_code = repair_result.get('fixed_code', '')
             if fixed_code:
-                st.subheader("🔧 Fixed Code")
+                st.subheader("Fixed Code")
                 st.code(fixed_code, language=result.get('language', 'python'))
             else:
-                st.warning("⚠️ Fix generation failed or returned empty code. The LLM may not have generated a proper fix. Please review the original code and try again.")
-                st.subheader("📝 Original Code (for reference)")
+                st.warning("Fix generation failed or returned empty code. The LLM may not have generated a proper fix. Please review the original code and try again.")
+                st.subheader("Original Code (for reference)")
                 original_code = result.get('original_code', '')
                 if original_code:
                     # Show context around the vulnerable line
@@ -709,7 +831,7 @@ def display_results():
             # Metrics
             metrics = repair_result.get('metrics', {})
             if metrics:
-                st.subheader("📊 Metrics")
+                st.subheader("Metrics")
                 
                 col1, col2, col3, col4 = st.columns(4)
                 with col1:
@@ -717,10 +839,10 @@ def display_results():
                 with col2:
                     st.metric("Fix Quality", f"{metrics.get('fix_quality_score', 0):.2f}")
                 with col3:
-                    exploit_status = "✅ Passed" if metrics.get('exploit_test_passed', False) else "❌ Failed"
+                    exploit_status = "Passed" if metrics.get('exploit_test_passed', False) else "Failed"
                     st.write(f"**Exploit Test:** {exploit_status}")
                 with col4:
-                    static_status = "✅ Passed" if metrics.get('static_analysis_passed', False) else "❌ Failed"
+                    static_status = "Passed" if metrics.get('static_analysis_passed', False) else "Failed"
                     st.write(f"**Static Analysis:** {static_status}")
             
             # Processing info
@@ -731,10 +853,10 @@ def display_results():
             privacy_required = routing_decision.get('privacy_required', False)
             
             if privacy_required:
-                st.write(f"**🔒 Model Used:** {model_used} (Local LLM - Privacy Protected)")
+                st.write(f"**Model Used:** {model_used} (Local LLM - Privacy Protected)")
                 st.info("Sensitive code detected - processed locally for security")
             else:
-                st.write(f"**✅ Model Used:** {model_used} (Cloud LLM - Better Accuracy)")
+                st.write(f"**Model Used:** {model_used} (Cloud LLM - Better Accuracy)")
                 st.info("Normal code - using cloud for optimal accuracy")
             
             if routing_decision.get('reasons'):
@@ -750,7 +872,7 @@ def display_results():
             )
             
             st.download_button(
-                label="📥 Download Fixed Code with Description",
+                label="Download Fixed Code with Description",
                 data=download_content,
                 file_name=f"fixed_vulnerability_{i}_{vuln.get('type', 'unknown').replace(' ', '_')}.txt",
                 mime="text/plain",
@@ -761,7 +883,7 @@ def display_results():
     st.subheader("Export Results")
     results_json = json.dumps(result, indent=2)
     st.download_button(
-        label="📥 Download Results (JSON)",
+        label="Download Results (JSON)",
         data=results_json,
         file_name="vulnerability_repair_results.json",
         mime="application/json"
@@ -770,7 +892,7 @@ def display_results():
 def display_documentation():
     """Display documentation"""
     
-    st.header("📚 Documentation")
+    st.header("Documentation")
     
     st.subheader("Overview")
     st.write("""
