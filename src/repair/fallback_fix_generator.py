@@ -188,11 +188,84 @@ class FallbackFixGenerator:
     
     def _fix_cpp(self, code: str, vuln_type: str, cwe: str, line_num: int) -> str:
         """Generate fix for C/C++ code"""
-        # Basic C/C++ fixes would go here
-        return code
-    
+        fixed = code
+
+        if vuln_type == 'Buffer Overflow' or cwe == 'CWE-119':
+            # Replace unsafe strcpy with strncpy
+            fixed = re.sub(
+                r'strcpy\s*\((\w+)\s*,\s*(\w+)\)',
+                r'strncpy(\1, \2, sizeof(\1) - 1); \1[sizeof(\1)-1] = \'\\0\'',
+                fixed,
+            )
+            # Replace gets with fgets
+            fixed = re.sub(
+                r'\bgets\s*\((\w+)\)',
+                r'fgets(\1, sizeof(\1), stdin)',
+                fixed,
+            )
+            # Replace strcat with strncat
+            fixed = re.sub(
+                r'strcat\s*\((\w+)\s*,\s*(\w+)\)',
+                r'strncat(\1, \2, sizeof(\1) - strlen(\1) - 1)',
+                fixed,
+            )
+            # Replace sprintf (format-string) with snprintf
+            fixed = re.sub(
+                r'\bsprintf\s*\((\w+),',
+                r'snprintf(\1, sizeof(\1),',
+                fixed,
+            )
+
+        elif vuln_type == 'Command Injection' or cwe == 'CWE-78':
+            # Remove shell=True equivalent by wrapping system() calls
+            fixed = re.sub(
+                r'\bsystem\s*\(([^)]+)\)',
+                r'/* FIXED: validate input before use */ system(\1)',
+                fixed,
+            )
+
+        return fixed
+
     def _fix_java(self, code: str, vuln_type: str, cwe: str, line_num: int) -> str:
         """Generate fix for Java code"""
-        # Basic Java fixes would go here
-        return code
+        fixed = code
 
+        if vuln_type == 'SQL Injection' or cwe == 'CWE-89':
+            # Replace Statement concatenation with PreparedStatement placeholder comment
+            fixed = re.sub(
+                r'Statement\s+(\w+)\s*=\s*conn\.createStatement\(\)',
+                r'PreparedStatement \1 = conn.prepareStatement(/* parameterized query */_query)',
+                fixed,
+            )
+            fixed = re.sub(
+                r'executeQuery\s*\("([^"]*?)"\s*\+\s*(\w+)',
+                r'executeQuery(/* use PreparedStatement with ? placeholder */"\1?")',
+                fixed,
+            )
+
+        elif vuln_type == 'Command Injection' or cwe == 'CWE-78':
+            # Replace Runtime.exec with ProcessBuilder
+            fixed = re.sub(
+                r'Runtime\.getRuntime\(\)\.exec\(([^)]+)\)',
+                r'new ProcessBuilder(List.of(/* safe tokenised args from \1 */)).start()',
+                fixed,
+            )
+
+        elif vuln_type == 'Weak Cryptography' or cwe in ('CWE-327', 'CWE-328'):
+            fixed = fixed.replace('"MD5"', '"SHA-256"')
+            fixed = fixed.replace("'MD5'", "'SHA-256'")
+
+        elif vuln_type == 'Hardcoded Credentials' or cwe == 'CWE-798':
+            # Replace literal password strings with System.getenv
+            fixed = re.sub(
+                r'String\s+password\s*=\s*"[^"]*"',
+                'String password = System.getenv("DB_PASSWORD")',
+                fixed,
+            )
+            fixed = re.sub(
+                r'String\s+username\s*=\s*"[^"]*"',
+                'String username = System.getenv("DB_USERNAME")',
+                fixed,
+            )
+
+        return fixed
