@@ -204,8 +204,13 @@ def main():
                             if st.button("Set Temporary Key", key="set_temp_key"):
                                 if temp_key:
                                     os.environ['OPENAI_API_KEY'] = temp_key
-                                    st.success("API key set for this session!")
-                                    st.info("Restart Streamlit to make it permanent")
+                                    from src.utils.config import config
+                                    config.openai_api_key = temp_key
+                                    # Force framework to pick up the new key 
+                                    from src.llm_models.chatgpt_cloud import ChatGPTCloud
+                                    st.session_state.framework.fix_generator.chatgpt = ChatGPTCloud()
+                                    
+                                    st.success("API key set and Connected!")
                                     time.sleep(1)
                                     st.rerun()
         

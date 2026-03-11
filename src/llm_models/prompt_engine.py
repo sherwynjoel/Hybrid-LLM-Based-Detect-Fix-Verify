@@ -51,16 +51,17 @@ Vulnerable Code:
 3. Provide the complete fixed code block
 4. Explain the security improvement
 
-Please provide:
-1. Fixed code (complete function/block)
-2. Brief explanation of the fix
-3. Security best practices applied
+IMPORTANT: You MUST format your response exactly as follows, with the code inside triple backticks:
 
-Fixed Code:
-```{language}
+```[language]
+<your fixed code here>
+```
+
+Explanation:
+<your explanation of the fix here>
 """
         
-        return prompt
+        return prompt.replace('[language]', language)
     
     def generate_refinement_prompt(self, original_code: str, fixed_code: str,
                                   feedback: List[str], language: str) -> str:
