@@ -159,32 +159,20 @@ class ChatGPTCloud:
         """Extract code block from LLM response"""
         import re
         
-        # Look for code blocks with language specification
-        code_block_pattern = f"```{language}\\n(.*?)```"
-        matches = re.findall(code_block_pattern, text, re.DOTALL)
+        # Look for code blocks with or without language specification
+        # This regex matches ```language (optional) \n CODE \n ```
+        code_block_pattern = r"```[a-zA-Z\+\-]*\s*\n(.*?)```"
+        matches = re.findall(code_block_pattern, text, re.DOTALL | re.IGNORECASE)
         
+        if matches:
+            # Return the last code block found (often the final fixed code)
+            return matches[-1].strip()
+            
+        # Fallback: just look for ``` anywhere
+        code_block_pattern = r"```(.*?)```"
+        matches = re.findall(code_block_pattern, text, re.DOTALL)
         if matches:
             return matches[-1].strip()
-        
-        # Fallback: look for any code block
-        code_block_pattern = "```\\n(.*?)```"
-        matches = re.findall(code_block_pattern, text, re.DOTALL)
-        
-        if matches:
-            return matches[-1].strip()
-        
-        # Try with different code block formats
-        code_block_pattern = "```(.*?)```"
-        matches = re.findall(code_block_pattern, text, re.DOTALL)
-        if matches:
-            # Filter out markdown code blocks that are explanations
-            for match in reversed(matches):
-                code = match.strip()
-                # Skip if it looks like explanation text
-                if not (code.startswith('python') or code.startswith('```') or 
-                        len(code.split('\n')) < 3 or 
-                        any(word in code.lower()[:100] for word in ['explanation', 'summary', 'note'])):
-                    return code
         
         # If no code block found, try to extract after keywords
         lines = text.split('\n')
